@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173b32">
+<title>KRFOOX Barbershop</title>
+<meta name="description" content="Онлайн-запись KRFOOX Barbershop">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f5f2ea;--card:#fffdf8;--ink:#1e2c27;--muted:#718078;--accent:#1c493d;--line:#e2e5dc;--warn:#9a4d35}
+*{box-sizing:border-box}body{margin:0;padding:16px;background:var(--bg);color:var(--ink);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:760px;margin:auto}.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px}
+header{background:var(--accent);color:#fff;border-radius:18px;padding:22px;margin-bottom:16px}header h1{margin:0;letter-spacing:.12em}header p{color:#dce9e1;margin:6px 0 16px}
+nav{display:flex;gap:8px;flex-wrap:wrap}nav a{background:#fff;color:var(--accent);padding:10px 13px;border-radius:10px;text-decoration:none;font-weight:700}
+h2{margin:0 0 10px}p{color:var(--muted);line-height:1.5;font-size:14px}
+label{display:block;font-size:13px;font-weight:800;margin:16px 0 7px}input,select,textarea{width:100%;padding:14px;border:1px solid var(--line);border-radius:12px;font:inherit;background:#fff;color:var(--ink)}
+button{border:0;background:var(--accent);color:white;padding:13px 15px;border-radius:12px;font:inherit;font-weight:700;cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}
+.booking-title{font-size:clamp(25px,6vw,36px);letter-spacing:-.03em;margin-bottom:4px}.booking-subtitle{font-size:15px;margin:0 0 22px}.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:22px 0}.step{display:flex;align-items:center;gap:8px;color:#8a8e8b;font-size:13px;font-weight:700}.step-num{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#e8e8e8;color:#777;flex-shrink:0}.step.active{color:var(--ink)}.step.active .step-num,.step.done .step-num{background:#171918;color:#fff}.step-panel{display:none}.step-panel.active{display:block}.step-actions{display:flex;gap:10px;margin-top:24px}.step-actions button{flex:1;min-height:52px}.btn-dark{background:#111312}.btn-light{background:#eceee9;color:var(--ink)}.date-time-label{margin-top:22px}.calendar-head button{min-width:46px;min-height:46px}.calendar{margin-top:12px}.slots{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.slot{min-height:44px;background:#fff;color:var(--ink);border-radius:11px;border:1px solid var(--line)}.slot.selected{background:#f3d39b;color:#171918;border:2px solid #333;padding:8px 2px}.slot:disabled{background:#eee;color:#999}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.calendar-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0}.calendar-head button{padding:8px 12px}.month{font-weight:800}.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}.weekday,.day{padding:8px 0;text-align:center;font-size:13px}.weekday{font-weight:800;color:var(--muted)}.day{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;min-height:38px}.day:disabled{opacity:.3}.day.selected{background:var(--accent);color:#fff}.day.day-off{background:#f8dede;color:#a51f2b;border-color:#dc6b73;text-decoration:line-through}.day.today{border-color:var(--accent);font-weight:900}.slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:10px}.slot{padding:9px 3px;background:#edf1e9;color:var(--accent);border:1px solid var(--line);font-size:13px}.slot.selected{background:var(--accent);color:#fff}.slot:disabled{background:#eee;color:#999;text-decoration:line-through}.status{white-space:pre-wrap;margin-top:10px;color:var(--warn);font-size:13px}.notice{border-left:4px solid var(--accent);padding:12px;background:#edf1e9;border-radius:8px;margin:10px 0}.photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.photos img{width:100%;height:180px;object-fit:cover;border-radius:12px}.review{padding:12px;border-bottom:1px solid var(--line)}.stars{color:#b18b32}@media(max-width:520px){body{padding:10px}.grid{grid-template-columns:1fr}.slots{grid-template-columns:repeat(3,minmax(0,1fr))}.card{padding:16px}.photos img{height:140px}.steps{gap:4px}.step{font-size:12px}.step-num{width:30px;height:30px}.step-actions button{padding:12px 8px}}
+
+/* Independent scrolling for calendar and time slots */
+#calendar{max-height:320px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;align-content:start;scroll-behavior:auto;padding:2px}
+#slots{max-height:260px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;align-content:start;padding:2px;border-radius:12px}
+#calendar .weekday{position:sticky;top:0;background:var(--card);z-index:1}
+#slots .slot.taken,#slots .slot:disabled{background:#f8dede!important;color:#a51f2b!important;border-color:#dc6b73!important;text-decoration:none!important;opacity:1;cursor:not-allowed}
+#slots .slot.selected:not(:disabled){background:var(--accent);color:#fff}
+@media(max-width:520px){#calendar{max-height:300px}#slots{max-height:230px}}
+</style>
+<style>
+.contacts-large{margin-top:26px;background:#111514;color:#fff;border-radius:24px;padding:clamp(24px,6vw,48px);width:100%}
+.contacts-inner{max-width:1000px;margin:0 auto}
+.contacts-kicker{font-size:12px;letter-spacing:.22em;font-weight:800;color:#b8c9bf;margin-bottom:12px}
+.contacts-large h2{font-size:clamp(34px,8vw,48px);line-height:1.1;margin:0 0 10px;color:#fff}
+.contacts-subtitle{font-size:12px;letter-spacing:.2em;color:#b8c0bb;font-weight:800;margin:0 0 28px}
+.contacts-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.contacts-links{display:grid;gap:10px}
+.contact-item{display:flex;align-items:center;gap:14px;padding:16px;background:#1d2421;border:1px solid #303a34;border-radius:15px;color:#fff;text-decoration:none;min-height:76px}
+.contact-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:13px;background:#294b3e;color:#fff;font-size:25px;flex-shrink:0}
+.contact-item small{display:block;font-size:10px;letter-spacing:.12em;color:#b9c5be;margin-bottom:5px;font-weight:800}
+.contact-item strong{font-size:clamp(15px,3.5vw,19px);font-weight:750;overflow-wrap:anywhere}
+.contact-arrow{margin-left:auto;font-size:20px;color:#b9c5be}
+.contact-static{cursor:default}
+.contacts-map{border-radius:18px;background:linear-gradient(145deg,#e9ece7,#cfd7d0);color:#17201b;padding:24px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:280px}
+.map-mark{font-size:48px;color:#235541}
+.contacts-map h3{font-size:27px;margin:12px 0 6px}
+.contacts-map p{color:#526057;margin:0 0 24px}
+.map-button{display:flex;align-items:center;justify-content:space-between;gap:20px;background:#173f32;color:white;text-decoration:none;padding:15px 18px;border-radius:12px;font-weight:800;width:100%;font-size:16px}
+@media(max-width:600px){.contacts-large{border-radius:20px;padding:24px 17px}.contacts-layout{grid-template-columns:1fr}.contacts-subtitle{font-size:10px;letter-spacing:.15em}.contact-item{padding:13px;gap:11px}.contact-icon{width:40px;height:40px}.contacts-map{min-height:220px}}
+</style>
+
+<style>
+#photos{padding:12px;overflow:hidden}
+.photo-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-height:220px}
+.photo-gallery:empty{min-height:240px}
+.photo-gallery img{display:block;width:100%;height:240px;object-fit:cover;border-radius:14px;background:#e6e5de}
+@media(max-width:520px){#photos{padding:10px}.photo-gallery{gap:8px;min-height:200px}.photo-gallery:empty{min-height:220px}.photo-gallery img{height:190px}}
+</style>
+<style>
+.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:22px 0}.step{display:flex;align-items:center;gap:8px;color:#8a8e8b;font-size:13px;font-weight:700}.step-num{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#e8e8e8;color:#777;flex-shrink:0}.step.active{color:var(--ink)}.step.active .step-num,.step.done .step-num{background:#171918;color:#fff}.step-panel{display:none}.step-panel.active{display:block}.step-actions{display:flex;gap:10px;margin-top:24px}.step-actions button{flex:1;min-height:52px}.btn-dark{background:#111312}.btn-light{background:#eceee9;color:var(--ink)}.booking-title{font-size:clamp(25px,6vw,36px);letter-spacing:-.03em;margin-bottom:4px}.booking-subtitle{font-size:15px;margin:0 0 22px}.date-time-label{margin-top:22px}.calendar-head button{min-width:46px;min-height:46px}.slot{min-height:44px;background:#fff;color:var(--ink);border-radius:11px;border:1px solid var(--line)}.slot.selected{background:#f3d39b;color:#171918;border:2px solid #333}.slot:disabled{background:#eee;color:#999}.contacts-large{margin-top:26px}@media(max-width:520px){.steps{gap:4px}.step{font-size:12px}.step-num{width:30px;height:30px}.step-actions button{padding:12px 8px}}
+</style>
+</head><body><main class="wrap">
+<header><h1>KRFOOX</h1><p>BARBERSHOP · МУЖСКИЕ СТРИЖКИ</p><nav><a href="#booking">Записаться</a><a href="#photos">Фотографии</a><a href="#reviews">Отзывы</a><a href="#contacts">Контакты</a><a href="#contacts">📍 Адрес</a></nav></header>
+<section class="card" id="workingHours" aria-live="polite">
+  <h2>🕒 Время работы</h2>
+  <div id="workingHoursDetails">Ежедневно · 08:00–00:00</div>
+</section>
+<section class="card booking-card" id="booking"><div id="announcementList"></div>
+<h2 class="booking-title">Запишитесь на стрижку</h2>
+<p class="booking-subtitle">Выберите дату и удобное время</p>
+<div class="notice" id="shopStatus" role="status">Проверяем статус салона…</div>
+<div class="notice" id="bookingCountNotice" aria-live="polite" style="margin-top:8px">👥 Записей на сегодня: <strong id="bookingCount">0</strong></div>
+<div class="steps" aria-label="Этапы записи">
+  <div class="step active" data-step-indicator="1"><span class="step-num">1</span><span>Дата и время</span></div>
+  <div class="step" data-step-indicator="2"><span class="step-num">2</span><span>Контакты</span></div>
+</div>
+<form id="bookingForm">
+  <div class="step-panel active" data-step-panel="1">
+    <label>ВЫБЕРИТЕ ДАТУ</label>
+    <div class="calendar-head"><button type="button" id="prevMonth" aria-label="Предыдущий месяц">‹</button><span class="month" id="monthLabel"></span><button type="button" id="nextMonth" aria-label="Следующий месяц">›</button></div>
+    <div id="calendar" class="calendar"></div><input type="hidden" id="bookingDate" required>
+    <label class="date-time-label">ВЫБЕРИТЕ ВРЕМЯ</label>
+    <div id="slots" class="slots"><p>Сначала выбери дату.</p></div><input id="bookingTime" type="hidden" required>
+    <div class="step-actions"><button type="button" class="btn-dark" id="toContacts">Далее →</button></div>
+  </div>
+  <div class="step-panel" data-step-panel="2">
+    <h3 style="margin:8px 0">Контактные данные</h3>
+    <p id="bookingSummary">Укажите имя и номер телефона.</p>
+    <label for="clientName">ИМЯ</label><input id="clientName" required maxlength="80" placeholder="Как к тебе обращаться" autocomplete="name">
+    <label for="clientPhone">ТЕЛЕФОН</label><input id="clientPhone" required type="tel" maxlength="30" placeholder="+996 ..." autocomplete="tel">
+    <div class="step-actions"><button type="button" class="btn-light" id="backToDate">← Назад</button><button type="submit" class="btn-dark" id="submitBooking">Подтвердить запись</button></div>
+  </div>
+  <div id="bookingStatus" class="status" role="status"></div><section id="cancelBookingPanel" class="notice" style="display:none;margin-top:16px"><button id="cancelBookingButton" type="button" class="btn-light">Отменить запись</button><div id="cancelBookingStatus" class="status" role="status"></div></section>
+</form></section>
+<section class="card" id="photos">
+  <div class="photo-gallery" id="photoList" aria-label="Фотографии работ KRFOOX"></div>
+  <div id="photoStatus" class="status"></div>
+</section>
+<section class="card" id="reviews"><h2>Отзывы клиентов</h2><p>Оставь отзыв о визите. Он появится на сайте после проверки владельцем.</p><div class="grid"><div><label for="reviewName">ИМЯ</label><input id="reviewName" maxlength="80"></div><div><label for="reviewRating">ОЦЕНКА</label><select id="reviewRating"><option value="5">★★★★★ — Отлично</option><option value="4">★★★★☆ — Хорошо</option><option value="3">★★★☆☆ — Нормально</option><option value="2">★★☆☆☆</option><option value="1">★☆☆☆☆</option></select></div></div><label for="reviewComment">ОТЗЫВ</label><textarea id="reviewComment" rows="3" maxlength="1000" placeholder="Напиши несколько слов о визите"></textarea><button id="sendReview" type="button" style="margin-top:10px">Отправить отзыв</button><div id="reviewStatus" class="status"></div><div id="reviewList"></div></section>
+<section class="contacts-large" id="contacts">
+  <div class="contacts-inner">
+    <div class="contacts-kicker">KRFOOX BARBERSHOP</div>
+    <h2>Контакты</h2>
+    <p class="contacts-subtitle">МЫ ВСЕГДА РАДЫ ВАС ВИДЕТЬ</p>
+    <div class="contacts-layout">
+      <div class="contacts-links">
+        <a class="contact-item" href="tel:+996556685003"><span class="contact-icon">☎</span><span><small>ПОЗВОНИТЬ НАМ</small><strong>+996 556 685 003</strong></span><span class="contact-arrow">↗</span></a>
+        <a class="contact-item" href="https://wa.me/996556685003" target="_blank" rel="noopener"><span class="contact-icon">◉</span><span><small>НАПИСАТЬ В WHATSAPP</small><strong>WhatsApp</strong></span><span class="contact-arrow">↗</span></a>
+        <a class="contact-item" href="https://www.instagram.com/krfoox/" target="_blank" rel="noopener"><span class="contact-icon">◎</span><span><small>НАШ INSTAGRAM</small><strong>@krfoox</strong></span><span class="contact-arrow">↗</span></a>
+      </div>
+      <div class="contacts-map">
+        <div class="map-mark">⌖</div>
+        <h3>Мы на карте</h3>
+        <p>Бишкек · KRFOOX Barbershop</p>
+        <a class="map-button" href="https://2gis.kg/bishkek/geo/70000001111134090" target="_blank" rel="noopener">Открыть в 2GIS <span>↗</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+</main><script>
+const SUPABASE_URL='https://atnujsjzmeeabwgmmqnc.supabase.co',SUPABASE_KEY='sb_publishable_5t_Ka3tVX64Bg6up-MxTLQ_Ef8NXk8A';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+const weekdays=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'],months=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const now=new Date();let viewYear=now.getFullYear(),viewMonth=now.getMonth(),selectedDate='',selectedTime='',bookings=[],daysOff=[],settings={open:true,open_at:'08:00',close_at:'00:00',close_datetime:'',reopen_datetime:''};
+let currentCancelableBooking=null,blockedSlots=[];
+const localDate=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function status(id,s){$(id).textContent=s||''}
+function refreshBookingCount(){
+  const date=selectedDate||localDate(new Date());
+  const count=bookings.filter(r=>
+    String(r.booking_date||'').slice(0,10)===date &&
+    !['cancelled','canceled'].includes(String(r.status||'').toLowerCase())
+  ).length;
+  const label=selectedDate?'Записей на выбранную дату:':'Записей на сегодня:';
+  $('bookingCountNotice').firstChild.textContent='👥 '+label+' ';
+  $('bookingCount').textContent=String(count);
+}
+function formatScheduleDate(value){
+  if(!value) return '';
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('ru-RU',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});
+}
+function getShopStatusText(){const now=new Date();const cr=settings.close_datetime||settings.close_datetime_at||'';const rr=settings.reopen_datetime||settings.open_datetime||settings.reopen_at||'';const cd=cr?new Date(cr):null,rd=rr?new Date(rr):null;const vc=cd&&!Number.isNaN(cd.getTime()),vr=rd&&!Number.isNaN(rd.getTime());if(vc&&now>=cd&&(!vr||rd<=cd||now<rd)){const until=vr&&rd>cd?' до '+formatScheduleDate(rd.toISOString()):'';return '🔴 Салон закрыт с '+formatScheduleDate(cd.toISOString())+until}if(vr&&now>=rd&&(!vc||rd>cd)){/* scheduled reopening has passed; normal/manual status applies */}const op=toMinutes(settings.open_at||'08:00');let cl=toMinutes(settings.close_at||'00:00');if(cl===0)cl=1440;const cm=now.getHours()*60+now.getMinutes();const within=cl>op?cm>=op&&cm<cl:cm>=op||cm<(cl===1440?0:cl);if(!within||settings.open===false)return '🔴 Салон закрыт';return '🟢 Салон открыт · Запись открыта'}
+function refreshShopStatus(){$('shopStatus').textContent=getShopStatusText()}
+function isBookingOpenNow(){return getShopStatusText().startsWith('🟢')}
+function renderCalendar(){ $('monthLabel').textContent=months[viewMonth]+' '+viewYear;const c=$('calendar');c.innerHTML='';weekdays.forEach(x=>{const e=document.createElement('div');e.className='weekday';e.textContent=x;c.append(e)});const first=new Date(viewYear,viewMonth,1);let offset=(first.getDay()+6)%7;for(let i=0;i<offset;i++){const e=document.createElement('div');c.append(e)}const days=new Date(viewYear,viewMonth+1,0).getDate(),today=localDate(new Date());for(let d=1;d<=days;d++){const date=`${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`,b=document.createElement('button');b.type='button';const dayOff=daysOff.includes(date);b.className='day'+(date===selectedDate?' selected':'')+(date===today?' today':'')+(dayOff?' day-off':'');b.textContent=d;b.disabled=date<today||!isBookingOpenNow()||dayOff;b.title=dayOff?'Выходной салона':date;b.onclick=()=>chooseDate(date);c.append(b)}}
+function chooseDate(date){if(daysOff.includes(date)){status('bookingStatus','В этот день салон не работает. Выберите другую дату.');return}selectedDate=date;selectedTime='';$('bookingDate').value=date;$('bookingTime').value='';renderCalendar();renderSlots();refreshBookingCount()}
+function toMinutes(t){const [h,m]=String(t||'').slice(0,5).split(':').map(Number);return h*60+m}
+function renderSlots(){const box=$('slots');box.innerHTML='';if(!selectedDate){box.textContent='Сначала выбери дату.';return}if(daysOff.includes(selectedDate)){box.textContent='В этот день салон не работает.';return}if(!isBookingOpenNow()){box.textContent='Салон закрыт.';return}const start=toMinutes(settings.open_at||'08:00'),end=toMinutes(settings.close_at||'00:00')||1440;let count=0;for(let m=start;m<end;m+=Math.max(5,Number(settings.booking_interval)||20)){const t=`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;const taken=bookings.some(r=>String(r.booking_date).slice(0,10)===selectedDate&&String(r.booking_time||'').slice(0,5)===t&&!['cancelled','canceled'].includes(String(r.status||'').toLowerCase()));const blocked=blockedSlots.some(r=>String(r.block_date).slice(0,10)===selectedDate&&toMinutes(t)>=toMinutes(String(r.start_time).slice(0,5))&&toMinutes(t)<toMinutes(String(r.end_time).slice(0,5)));const b=document.createElement('button');b.type='button';b.className='slot'+(selectedTime===t?' selected':'')+((taken||blocked)?' taken':'');b.textContent=t;b.disabled=taken||blocked;b.setAttribute('aria-disabled',taken?'true':'false');b.title=taken?'Время занято':blocked?'В это время запись недоступна':'Выбрать '+t;b.onclick=()=>{if(taken)return;selectedTime=t;$('bookingTime').value=t;renderSlots()};box.append(b);count++}if(!count)box.textContent='Нет доступных временных интервалов.'}
+$('prevMonth').onclick=()=>{viewMonth--;if(viewMonth<0){viewMonth=11;viewYear--}renderCalendar()};$('nextMonth').onclick=()=>{viewMonth++;if(viewMonth>11){viewMonth=0;viewYear++}renderCalendar()};
+async function loadPublicData(){try{const [br,sr,pr,ar,rr,dr,blr]=await Promise.all([db.rpc('krfoox_booked_times',{p_date_from:localDate(new Date())}),db.from('salon_settings').select('*').eq('id',1).maybeSingle(),db.from('site_photos').select('*').eq('published',true).order('created_at',{ascending:false}),db.from('announcements').select('*').eq('published',true).order('created_at',{ascending:false}),db.from('reviews').select('*').eq('published',true).order('created_at',{ascending:false}),db.from('salon_days_off').select('off_date'),db.from('salon_blocked_slots').select('*')]);if(!br.error)bookings=(br.data||[]).map(x=>({...x,status:'confirmed'}));if(!sr.error&&sr.data)settings={...settings,...sr.data};if(!dr.error)daysOff=(dr.data||[]).map(x=>String(x.off_date).slice(0,10));if(!blr.error)blockedSlots=blr.data||[];renderCalendar();renderSlots();refreshShopStatus();refreshBookingCount();
+const hoursBox=$('workingHoursDetails');
+if(hoursBox){
+  const openAt=String(settings.open_at||'08:00').slice(0,5);
+  const closeAt=String(settings.close_at||'00:00').slice(0,5);
+  hoursBox.textContent=`Ежедневно · ${openAt}–${closeAt}`;
+}{const box=$('photoList');box.innerHTML='';if(!pr.error)(pr.data||[]).forEach(p=>{const img=document.createElement('img');img.src=p.url;img.alt=p.caption||'Работа KRFOOX';box.append(img)})}if(ar.error){$('announcementList').innerHTML=''}else{$('announcementList').innerHTML='';(ar.data||[]).forEach(a=>{const d=document.createElement('div');d.className='notice';const strong=document.createElement('strong');strong.textContent=a.title||'Объявление';const p=document.createElement('p');p.textContent=a.body||'';d.append(strong,p);$('announcementList').append(d)})}if(rr.error){$('reviewList').innerHTML=''}else{$('reviewList').innerHTML='';(rr.data||[]).forEach(r=>{const d=document.createElement('div');d.className='review';const strong=document.createElement('strong');strong.textContent=r.client_name||'Клиент';const stars=document.createElement('div');stars.className='stars';stars.textContent='★'.repeat(Number(r.rating)||5);const p=document.createElement('p');p.textContent=r.comment||'';d.append(strong,stars,p);$('reviewList').append(d)})}}catch(e){status('bookingStatus','Не удалось загрузить данные: '+e.message)}}
+function showBookingStep(n){document.querySelectorAll('[data-step-panel]').forEach(p=>p.classList.toggle('active',Number(p.dataset.stepPanel)===n));document.querySelectorAll('[data-step-indicator]').forEach(s=>{const i=Number(s.dataset.stepIndicator);s.classList.toggle('active',i===n);s.classList.toggle('done',i<n)});if(n===2){const date=selectedDate?new Date(selectedDate+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}):'дата не выбрана';$('bookingSummary').textContent=`Выбрано: ${date}, ${selectedTime||'время не выбрано'}`;setTimeout(()=>$('bookingForm').scrollIntoView({behavior:'smooth',block:'center'}),50)}}
+$('toContacts').onclick=()=>{if(!selectedDate){status('bookingStatus','Сначала выберите дату.');return}if(!selectedTime){status('bookingStatus','Выберите свободное время.');return}status('bookingStatus','');showBookingStep(2)};
+$('backToDate').onclick=()=>showBookingStep(1);
+$('bookingForm').addEventListener('submit',async e=>{e.preventDefault();if(!selectedDate||!selectedTime){status('bookingStatus','Выбери дату и свободное время.');return}if(daysOff.includes(selectedDate)){status('bookingStatus','В этот день салон не работает. Выберите другую дату.');return}if(!isBookingOpenNow()){status('bookingStatus','Салон закрыт.');return}const name=$('clientName').value.trim(),phone=$('clientPhone').value.trim(),service='Запись';status('bookingStatus','Сохраняем запись…');$('submitBooking').disabled=true;try{const {data:created,error}=await db.rpc('krfoox_create_booking',{p_client_name:name,p_phone:phone,p_booking_date:selectedDate,p_booking_time:selectedTime,p_service:service});if(error)throw error;if(created&&created.ok===false)throw new Error(created.message||'Не удалось создать запись.');currentCancelableBooking={name,phone,date:selectedDate,time:selectedTime};status('bookingStatus',`Готово! Запись на ${selectedDate} в ${selectedTime} сохранена.`);$('cancelBookingPanel').style.display='block';status('cancelBookingStatus','');$('bookingForm').reset();selectedDate='';selectedTime='';$('bookingDate').value='';$('bookingTime').value='';showBookingStep(1);$('cancelBookingPanel').scrollIntoView({behavior:'smooth',block:'center'});await loadPublicData()}catch(err){const message=String(err?.message||'');if(/занят|duplicate|unique|already|slot|booked|конфликт/i.test(message)){status('bookingStatus','Это время уже занято. Выберите другое время.');selectedTime='';$('bookingTime').value='';await loadPublicData()}else{status('bookingStatus','Не удалось создать запись: '+message)}}finally{$('submitBooking').disabled=false}});
+$('cancelBookingButton').onclick=async()=>{
+  const booking=currentCancelableBooking;
+  if(!booking){status('cancelBookingStatus','Нет записи для отмены. Сначала создайте запись на этом устройстве.');return}
+  const btn=$('cancelBookingButton');
+  btn.disabled=true;
+  status('cancelBookingStatus','Отменяем запись…');
+  try{
+    const {data,error}=await db.rpc('krfoox_cancel_booking',{
+      p_client_name:booking.name,
+      p_phone:booking.phone,
+      p_booking_date:booking.date,
+      p_booking_time:booking.time
+    });
+    if(error)throw error;
+    if(data&&data.ok===false)throw new Error(data.message||'Запись не найдена или уже отменена.');
+    status('cancelBookingStatus','Запись отменена.');
+    status('bookingStatus','Запись отменена.');
+    $('cancelBookingPanel').style.display='none';
+    currentCancelableBooking=null;
+    await loadPublicData();
+  }catch(e){
+    status('cancelBookingStatus','Не удалось отменить запись: '+String(e?.message||e));
+  }finally{
+    btn.disabled=false;
+  }
+}
+$('sendReview').onclick=async()=>{const name=$('reviewName').value.trim(),comment=$('reviewComment').value.trim(),rating=Number($('reviewRating').value);if(!name||!comment){status('reviewStatus','Укажи имя и текст отзыва.');return}try{const {error}=await db.from('reviews').insert({client_name:name,comment,rating,published:false});if(error)throw error;$('reviewName').value='';$('reviewComment').value='';status('reviewStatus','Спасибо! Отзыв отправлен владельцу на проверку.')}catch(e){status('reviewStatus','Не удалось отправить отзыв: '+e.message+'. Проверь таблицу reviews и права доступа в Supabase.')}};
+renderCalendar();loadPublicData();
+setInterval(loadPublicData, 60000);setInterval(()=>{refreshShopStatus();renderCalendar();renderSlots()},10000);
+</script></body></html>
